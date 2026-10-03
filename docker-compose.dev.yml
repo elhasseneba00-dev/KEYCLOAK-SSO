@@ -27,7 +27,6 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
     container_name: keycloak
-    restart: unless-stopped
     command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
@@ -38,7 +37,7 @@ services:
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KC_HEALTH_ENABLED: "true"
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8088:8088"
     volumes:
       - ./realm:/opt/keycloak/data/import:ro
     depends_on:
