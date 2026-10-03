@@ -1,5 +1,5 @@
 {
-  "realm": "Sista",
+  "realm": "sista",
   "displayName": "Sista consult",
   "enabled": true,
   "sslRequired": "external",
@@ -119,7 +119,7 @@
       "emailVerified": true,
       "groups": ["/employes"],
       "clientRoles": { "app-api": ["admin"] },
-      "credentials": [{ "type": "password", "value": "mohamed", "temporary": false }]
+      "credentials": [{ "type": "password", "value": "Sista12345", "temporary": false }]
     },
     {
       "username": "alassane",
@@ -129,7 +129,7 @@
       "enabled": true,
       "emailVerified": true,
       "groups": ["/employes"],
-      "credentials": [{ "type": "password", "value": "alassane", "temporary": false }]
+      "credentials": [{ "type": "password", "value": "Sista12345", "temporary": false }]
     }
   ]
 }

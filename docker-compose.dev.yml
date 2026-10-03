@@ -1,23 +1,16 @@
-# =====================================================================
-#  Keycloak en mode DÉVELOPPEMENT (poste local)
-#  Importe automatiquement le realm d'exemple ./realm/entreprise-realm.json
-#
-#  docker compose -f docker-compose.dev.yml up
-#  Console admin : http://localhost:8080/admin   (admin / admin)
-#  Realm         : http://localhost:8080/realms/entreprise
-#
-#  /!\ start-dev a des réglages non sécurisés : JAMAIS en production.
-# =====================================================================
-
 services:
+
   keycloak-db:
     image: postgis/postgis:16-3.4
+
     environment:
       POSTGRES_DB: ${KC_DB_NAME}
       POSTGRES_USER: ${KC_DB_USER}
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+
     volumes:
       - kc_dev_db:/var/lib/postgresql/data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER} -d ${KC_DB_NAME}"]
       interval: 10s
@@ -26,22 +19,33 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
+
     container_name: keycloak
-    command: start-dev --import-realm
+
+    command:
+      - start-dev
+      - --import-realm
+
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME}
       KC_DB_USERNAME: ${KC_DB_USER}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+
       KC_HEALTH_ENABLED: "true"
+
     ports:
-      - "127.0.0.1:8088:8088"
+      - "127.0.0.1:8088:8080"
+
     volumes:
       - ./realm:/opt/keycloak/data/import:ro
+
     depends_on:
-      - keycloak-db
+      keycloak-db:
+        condition: service_healthy
 
 volumes:
   kc_dev_db:
