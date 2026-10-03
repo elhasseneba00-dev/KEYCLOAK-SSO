@@ -1,3 +1,14 @@
+# =====================================================================
+#  Keycloak en mode DÉVELOPPEMENT (poste local)
+#  Importe automatiquement le realm d'exemple ./realm/entreprise-realm.json
+#
+#  docker compose -f docker-compose.dev.yml up
+#  Console admin : http://localhost:8080/admin   (admin / admin)
+#  Realm         : http://localhost:8080/realms/entreprise
+#
+#  /!\ start-dev a des réglages non sécurisés : JAMAIS en production.
+# =====================================================================
+
 services:
   keycloak-db:
     image: postgres:17-alpine

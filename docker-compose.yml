@@ -1,0 +1,116 @@
+# =====================================================================
+#  Service d'authentification centralisé (SSO) — Keycloak + PostgreSQL
+#
+#  Usage :
+#    cp .env.example .env      # puis remplir les valeurs
+#    docker compose up -d
+#    docker compose logs -f keycloak
+# =====================================================================
+
+services:
+
+  # -------------------------------------------------------------------
+  # Base de données dédiée à Keycloak (ne PAS partager avec les apps)
+  # -------------------------------------------------------------------
+  keycloak-db:
+    image: postgis/postgis:16-3.4
+    container_name: keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KC_DB_NAME}
+      POSTGRES_USER: ${KC_DB_USER}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    networks:
+      - keycloak-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER} -d ${KC_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------
+  # Keycloak
+  # -------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
+    container_name: keycloak
+    restart: unless-stopped
+    command: start
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    environment:
+      # --- Admin initial (à utiliser UNE fois, puis créer un vrai admin et supprimer celui-ci)
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+
+      # --- Base de données
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME}
+      KC_DB_USERNAME: ${KC_DB_USER}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+
+      # --- URL publique (DOIT être l'URL que les navigateurs/apps utilisent)
+      KC_HOSTNAME: http://${KC_DOMAIN}
+
+      # --- Derrière un reverse proxy qui termine le TLS
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+
+      # --- Observabilité (port de management 9000, non exposé publiquement)
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+      # --- Logs
+      KC_LOG_LEVEL: info
+    # Pas de "ports:" -> Keycloak n'est joignable QUE via le reverse proxy
+    networks:
+      - keycloak-internal
+      - proxy
+    deploy:
+      resources:
+        limits:
+          memory: 2g        # recommandé par Keycloak pour un petit déploiement
+    healthcheck:
+      # l'image ne contient pas curl : on teste le port de management en bash
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # -------------------------------------------------------------------
+  # Reverse proxy + HTTPS automatique (Let's Encrypt)
+  # Si un reverse proxy occupe déjà 80/443 sur le serveur, supprimez ce
+  # service et ajoutez simplement un vhost vers keycloak:8080.
+  # -------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: keycloak-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      KC_DOMAIN: ${KC_DOMAIN}
+      ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - keycloak
+    networks:
+      - proxy
+
+volumes:
+  keycloak_db_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  keycloak-internal:
+    internal: true      # la base n'a aucun accès réseau extérieur
+  proxy:
